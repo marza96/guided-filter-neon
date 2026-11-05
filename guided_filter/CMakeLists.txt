@@ -26,6 +26,11 @@ add_library(guided_filter_neon src/guided_filter_neon.cpp)
 target_include_directories(guided_filter_neon PUBLIC include)
 target_link_libraries(guided_filter_neon ${OpenCV_LIBS} OpenMP::OpenMP_CXX)
 
+add_executable(guided_filtering_main src/main.cpp)
+target_include_directories(guided_filtering_main PUBLIC include)
+target_link_libraries(guided_filtering_main guided_filter_naive OpenMP::OpenMP_CXX)
+target_link_libraries(guided_filtering_main guided_filter_neon OpenMP::OpenMP_CXX)
+
 
 if (RUN_TEST STREQUAL "True")
     find_package(GTest REQUIRED)
@@ -39,7 +44,6 @@ if (RUN_TEST STREQUAL "True")
     target_link_libraries(test_guided_filter_naive GTest::gtest_main)
     target_link_libraries(test_guided_filter_naive guided_filter_naive)
     target_link_libraries(test_guided_filter_naive OpenMP::OpenMP_CXX)
-
 
     add_executable(test_guided_filter_neon test/test_guided_filter_neon.cpp)
     target_include_directories(test_guided_filter_neon PUBLIC include)
