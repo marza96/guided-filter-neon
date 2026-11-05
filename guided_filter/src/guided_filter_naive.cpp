@@ -73,10 +73,6 @@ void guided_filter(cv::Mat &input, cv::Mat &guide, cv::Mat &output, Configuratio
 {
     if ((input.rows != guide.rows) || (input.cols != guide.cols))
         throw std::length_error("Size of the guide does not match the input size");
-
-    cv::copyMakeBorder(input, input, config.guide_size, config.guide_size, config.guide_size, config.guide_size, cv::BORDER_CONSTANT, cv::Scalar(0));
-    cv::copyMakeBorder(output, output, config.guide_size, config.guide_size, config.guide_size, config.guide_size, cv::BORDER_CONSTANT, cv::Scalar(0));
-    cv::copyMakeBorder(guide, guide, config.guide_size, config.guide_size, config.guide_size, config.guide_size, cv::BORDER_CONSTANT, cv::Scalar(0));
     
     // #pragma omp parallel for
     for (int i = 0; i < input.rows; i++)
