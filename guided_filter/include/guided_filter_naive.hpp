@@ -1,5 +1,6 @@
 #include <stdexcept>
 #include <iostream>
+#include <common.hpp>
 
 
 #ifndef GUIDED_FILTER_NAIVE_HPP
