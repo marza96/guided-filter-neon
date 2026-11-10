@@ -26,10 +26,8 @@ float get_mean(int i, int j, const cv::Mat &input, Configuration &config)
     return acum / ((end_row - start_row + 1) * (end_col - start_col + 1));
 }
 
-void fit_window(int i, int j, cv::Mat &input, cv::Mat &guide, cv::Mat &output, Configuration &config)
+void fit_window(int i, int j, cv::Mat &input, cv::Mat &guide, cv::Mat &output, cv::Mat &guide_guide, cv::Mat &input_guide, Configuration &config)
 {
-    static cv::Mat input_guide = input.mul(guide);
-    static cv::Mat guide_guide = guide.mul(guide);
 
     float mean_input = get_mean(i, j, input, config);
     float mean_guide = get_mean(i, j, guide, config);
@@ -74,12 +72,18 @@ void guided_filter(cv::Mat &input, cv::Mat &guide, cv::Mat &output, Configuratio
     if ((input.rows != guide.rows) || (input.cols != guide.cols))
         throw std::length_error("Size of the guide does not match the input size");
     
-    // #pragma omp parallel for
-    for (int i = 0; i < input.rows; i++)
+    // cv::copyMakeBorder(input, input, config.guide_size, config.guide_size, config.guide_size, config.guide_size, cv::BORDER_CONSTANT, cv::Scalar(0));
+    // cv::copyMakeBorder(output, output, config.guide_size, config.guide_size, config.guide_size, config.guide_size, cv::BORDER_CONSTANT, cv::Scalar(0));
+    // cv::copyMakeBorder(guide, guide, config.guide_size, config.guide_size, config.guide_size, config.guide_size, cv::BORDER_CONSTANT, cv::Scalar(0));
+
+    cv::Mat input_guide = input.mul(guide);
+    cv::Mat guide_guide = guide.mul(guide);
+    
+    for (int i = config.guide_size + 3; i < input.rows - config.guide_size - 3; i++)
     {
-        for (int j = 0; j < input.cols; j ++)
+        for (int j = config.guide_size + 3; j < input.cols - config.guide_size - 3; j++)
         {
-            fit_window(i, j, input, guide, output, config);
+            fit_window(i, j, input, guide, output, guide_guide, input_guide, config);
         }
     }
 

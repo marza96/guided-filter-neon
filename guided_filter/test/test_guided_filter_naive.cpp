@@ -24,6 +24,33 @@ TEST(GuidedFilterNaive, RescalingTestNaive) {
     }
 }
 
+TEST(GuidedFilterNaive, GuidedFilterTestNaive) {
+    int SIZE = 5;
+    cv::Mat test_input{cv::Mat::zeros(SIZE, SIZE, CV_32F)};
+    cv::Mat test_guide{cv::Mat::zeros(SIZE, SIZE, CV_32F)};
+    cv::Mat test_output{cv::Mat::zeros(SIZE, SIZE, CV_32F)};
+
+    Configuration config{4, 1e-10}; 
+
+    for (int i = 0; i < test_input.rows; i++) {
+        for (int j = 0; j < test_input.cols; j ++) {
+            test_input.at<float>(i, j) = float(i + j);
+            test_guide.at<float>(i, j) = 0.5 * float(i + j) - 1.0;
+        }
+    }
+
+    guided_filter(test_input, test_guide, test_output, config);
+    
+    for (int i = config.guide_size + 3; i < test_input.rows - config.guide_size + 3; i++)
+    {
+        for (int j = config.guide_size + 3; j < test_input.cols - config.guide_size + 3; j += 4)
+        {
+            EXPECT_EQ(test_output.at<float>(i, j), test_input.at<float>(i, j));
+        }
+        std::cout << std::endl;
+    }
+}
+
 
 struct WindowCenter_ {
     int x;
@@ -61,8 +88,12 @@ TEST_P(GuidedFilterNaiveP, FitWindow) {
         }
     }
 
+    cv::Mat test_input_guide = test_input.mul(test_guide);
+    cv::Mat test_guide_guide = test_guide.mul(test_guide);
+
     WindowCenter center = GetParam();
-    fit_window(center.x, center.y, test_input, test_guide, test_output, config);
+    
+    fit_window(center.x, center.y, test_input, test_guide, test_output, test_guide_guide, test_input_guide, config);
     
     for (int i = 0; i < center.x - config.guide_size + test_input.rows; i++) {
         for (int j = 0; j < center.y - config.guide_size + test_input.cols; j ++) {

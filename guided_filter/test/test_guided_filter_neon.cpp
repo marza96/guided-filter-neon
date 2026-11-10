@@ -97,26 +97,26 @@ TEST(GuidedFilterNeon, WriteBuffTestNeon)
     }
 
 
-    // float ref_buffer_e[25] = {
-    //     0.0, 0.0, 0.0, 0.0, 0.0, 
-    //     0.0, 0.0, 0.0, 0.0, 0.0, 
-    //     0.0, 0.0, 0.0, 0.0, 0.0, 
-    //     0.0, 0.0, 1.0, 2.0, 3.0, 
-    //     0.0, 0.0, 0.0, 0.0, 0.0, 
-    // };
-    // float out_buffer_e[25] = {
-    //     0.0, 0.0, 0.0, 0.0, 0.0, 
-    //     0.0, 0.0, 0.0, 0.0, 0.0, 
-    //     0.0, 0.0, 0.0, 0.0, 0.0, 
-    //     0.0, 0.0, 0.0, 0.0, 0.0, 
-    //     0.0, 0.0, 0.0, 0.0, 0.0, 
-    // };
+    float ref_buffer_e[25] = {
+        0.0, 0.0, 0.0, 0.0, 0.0, 
+        0.0, 0.0, 0.0, 0.0, 0.0, 
+        0.0, 0.0, 0.0, 0.0, 0.0, 
+        0.0, 0.0, 1.0, 2.0, 3.0, 
+        0.0, 0.0, 0.0, 0.0, 0.0, 
+    };
+    float out_buffer_e[25] = {
+        0.0, 0.0, 0.0, 0.0, 0.0, 
+        0.0, 0.0, 0.0, 0.0, 0.0, 
+        0.0, 0.0, 0.0, 0.0, 0.0, 
+        0.0, 0.0, 0.0, 0.0, 0.0, 
+        0.0, 0.0, 0.0, 0.0, 0.0, 
+    };
     
-    // write_buff(vld1q_f32(buffer), out_buffer_e, 3, 2, 5, 5);
+    write_buff(vld1q_f32(buffer), out_buffer_e, 3, 2, 5, 5);
 
-    // for (int i = 0; i < 25; i++){
-    //     EXPECT_NEAR(out_buffer_e[i], ref_buffer_e[i], 1e-10);
-    // }
+    for (int i = 0; i < 25; i++){
+        EXPECT_NEAR(out_buffer_e[i], ref_buffer_e[i], 1e-10);
+    }
 }
 
 
@@ -143,10 +143,8 @@ TEST(GuidedFilterNeon, FetchBuffCachedTestNeon)
 
         for (int i = 0; i < 4; i++)
         {   
-            std::cout << out_buffer[i] << " ";
             EXPECT_NEAR(out_buffer[i], out_buffer_cached[i], 1e-10);
         }
-        std::cout << std::endl;
     }
 }
 
@@ -261,6 +259,37 @@ TEST(GuidedFilterNeon, RescaleTestNeon)
     }
 }
 
+
+TEST(GuidedFilterNeon, GuidedFilterTestNeon) {
+    int SIZE = 20;
+    cv::Mat test_input{cv::Mat::zeros(SIZE, SIZE, CV_32F)};
+    cv::Mat test_guide{cv::Mat::zeros(SIZE, SIZE, CV_32F)};
+    cv::Mat test_output{cv::Mat::zeros(SIZE, SIZE, CV_32F)};
+    cv::Mat test_output_neon{cv::Mat::zeros(SIZE, SIZE, CV_32F)};
+
+    Configuration config{2, 1e-10}; 
+
+    for (int i = 0; i < test_input.rows; i++) {
+        for (int j = 0; j < test_input.cols; j ++) {
+            test_input.at<float>(i, j) = float(i + j);
+            test_guide.at<float>(i, j) = 0.5 * float(i + j) - 1.0;
+        }
+    }
+
+    guided_filter(test_input, test_guide, test_output, config);
+    guided_filter_neon(test_input, test_guide, test_output_neon, config);
+
+    for (int i = config.guide_size + 3; i < test_input.rows - config.guide_size + 3; i++)
+    {
+        for (int j = config.guide_size + 3; j < test_input.cols - config.guide_size + 3; j++)
+        {
+            EXPECT_EQ(test_output.at<float>(i, j), test_output_neon.at<float>(i, j));
+        }
+        std::cout << std::endl;
+    }
+}
+
+
 TEST(GuidedFilterNeonP, GetMeanTestNeon)
 {   
     int SIZE = 10;
@@ -340,12 +369,15 @@ TEST(GuidedFilterNeon, FitWindowNeon) {
 
     Configuration config{2, 1e-10}; 
 
-    fit_window(CENTER_X, CENTER_Y, test_input, test_guide, dummy_output, config);
+    cv::Mat test_input_guide = test_input.mul(test_guide);
+    cv::Mat test_guide_guide = test_guide.mul(test_guide);
+
+    fit_window(CENTER_X, CENTER_Y, test_input, test_guide, dummy_output, test_guide_guide, test_input_guide, config);
     auto start = std::chrono::steady_clock::now();
-    fit_window(CENTER_X, CENTER_Y, test_input, test_guide, test_output, config);
-    fit_window(CENTER_X, CENTER_Y + 1, test_input, test_guide, test_output, config);
-    fit_window(CENTER_X, CENTER_Y + 2, test_input, test_guide, test_output, config);
-    fit_window(CENTER_X, CENTER_Y + 3, test_input, test_guide, test_output, config);
+    fit_window(CENTER_X, CENTER_Y, test_input, test_guide, test_output, test_guide_guide, test_input_guide, config);
+    fit_window(CENTER_X, CENTER_Y + 1, test_input, test_guide, test_output, test_guide_guide, test_input_guide, config);
+    fit_window(CENTER_X, CENTER_Y + 2, test_input, test_guide, test_output, test_guide_guide, test_input_guide, config);
+    fit_window(CENTER_X, CENTER_Y + 3, test_input, test_guide, test_output, test_guide_guide, test_input_guide, config);
     auto end = std::chrono::steady_clock::now();
     auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
     std::cout << "timing: " << ns << " fit_window naive ns\n";

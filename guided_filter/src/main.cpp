@@ -2,7 +2,12 @@
 #include <guided_filter_neon.hpp>
 #include <guided_filter_naive.hpp>
 
+#include <chrono>
 #include <iostream>
+#include <string>
+
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
 
 int main(int argc, char** argv)
 {
@@ -29,7 +34,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    Configuration config{2, 1e-10};
+    Configuration config{4, 1e-10};
 
     cv::cvtColor(guide_u8, guide_u8, cv::COLOR_BGR2GRAY);
     cv::cvtColor(input_u8, input_u8, cv::COLOR_BGR2GRAY);
@@ -40,7 +45,7 @@ int main(int argc, char** argv)
 
     cv::Mat input_neon = input.clone();
     cv::Mat guide_neon = guide.clone();
- 
+
     auto start = std::chrono::steady_clock::now();
     cv::Mat output_neon = cv::Mat::zeros(input.rows, input.cols, input.type());
     guided_filter_neon(input_neon, guide_neon, output_neon, config);
@@ -55,6 +60,29 @@ int main(int argc, char** argv)
     us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
     std::cout << us << " naive us\n";
 
+    cv::Mat diff;
+    cv::absdiff(output, output_neon, diff); // CV_32F, range ~[0, 1]
+
+    double min_diff = 0.0, max_diff = 0.0;
+    cv::minMaxLoc(diff, &min_diff, &max_diff);
+    const double mean_diff = cv::mean(diff)[0];
+
+    std::cout << "diff: min=" << min_diff
+              << " max=" << max_diff
+              << " mean=" << mean_diff << "\n";
+
+    cv::Mat diff_u8;
+    diff.convertTo(diff_u8, CV_8U, 255.0);
+
+    cv::Mat diff_amp_u8;
+    if (max_diff > 0.0)
+        diff.convertTo(diff_amp_u8, CV_8U, 255.0 / max_diff);
+    else
+        diff_amp_u8 = cv::Mat::zeros(diff.size(), CV_8U);
+
+    cv::Mat diff_heatmap;
+    cv::applyColorMap(diff_amp_u8, diff_heatmap, cv::COLORMAP_JET);
+
     cv::Mat output_u8;
     cv::Mat output_neon_u8;
     output.convertTo(output_u8, CV_8U, 255.0);
@@ -62,6 +90,9 @@ int main(int argc, char** argv)
 
     cv::imwrite("output.png", output_u8);
     cv::imwrite("output_neon.png", output_neon_u8);
+    cv::imwrite("diff.png", diff_u8);
+    cv::imwrite("diff_amplified.png", diff_amp_u8);
+    cv::imwrite("diff_heatmap.png", diff_heatmap);
 
     return 0;
 }
