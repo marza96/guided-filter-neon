@@ -10,10 +10,10 @@ float get_mean(int i, int j, const cv::Mat &input, Configuration &config)
     const float *input_buff = input.ptr<float>(i, j);
     float acum = 0;
 
-    int start_row = std::max(i - config.guide_size, 0);
-    int start_col = std::max(j - config.guide_size, 0);
-    int end_row = std::min(i + config.guide_size, input.rows - 1);
-    int end_col = std::min(j + config.guide_size, input.cols - 1);
+    int start_row = std::max(i - config.guide_size, config.guide_size + 3);
+    int start_col = std::max(j - config.guide_size, config.guide_size + 3);
+    int end_row = std::min(i + config.guide_size, input.rows - config.guide_size - 4);
+    int end_col = std::min(j + config.guide_size, input.cols - config.guide_size - 4);
 
     for (int p = start_row; p <= end_row; p++)
     {
@@ -37,10 +37,10 @@ void fit_window(int i, int j, cv::Mat &input, cv::Mat &guide, cv::Mat &output, c
     float a = (mean_mul - mean_input * mean_guide) / (sigma + config.eps);
     float b = mean_input - a * mean_guide;
 
-    int start_row = std::max(i - config.guide_size, 0);
-    int start_col = std::max(j - config.guide_size, 0);
-    int end_row = std::min(i + config.guide_size, input.rows - 1);
-    int end_col = std::min(j + config.guide_size, input.cols - 1);
+    int start_row = std::max(i - config.guide_size, config.guide_size + 3);
+    int start_col = std::max(j - config.guide_size, config.guide_size + 3);
+    int end_row = std::min(i + config.guide_size, input.rows - config.guide_size - 4);
+    int end_col = std::min(j + config.guide_size, input.cols - config.guide_size - 4);
 
     for (int p = start_row; p <= end_row; p++)
     {
@@ -57,10 +57,10 @@ void rescale(cv::Mat &output, Configuration &config)
     {
         for (int j = 0; j < output.cols; j++)
         {
-            int start_row = std::max(i - config.guide_size, 0);
-            int start_col = std::max(j - config.guide_size, 0);
-            int end_row = std::min(i + config.guide_size, output.rows - 1);
-            int end_col = std::min(j + config.guide_size, output.cols - 1);
+            int start_row = std::max(i - config.guide_size, config.guide_size + 3);
+            int start_col = std::max(j - config.guide_size, config.guide_size + 3);
+            int end_row = std::min(i + config.guide_size, output.rows - config.guide_size - 4);
+            int end_col = std::min(j + config.guide_size, output.cols - config.guide_size - 4);
 
             output.at<float>(i, j) /= (end_row - start_row + 1) * (end_col - start_col + 1);
         }
@@ -72,9 +72,9 @@ void guided_filter(cv::Mat &input, cv::Mat &guide, cv::Mat &output, Configuratio
     if ((input.rows != guide.rows) || (input.cols != guide.cols))
         throw std::length_error("Size of the guide does not match the input size");
     
-    // cv::copyMakeBorder(input, input, config.guide_size, config.guide_size, config.guide_size, config.guide_size, cv::BORDER_CONSTANT, cv::Scalar(0));
-    // cv::copyMakeBorder(output, output, config.guide_size, config.guide_size, config.guide_size, config.guide_size, cv::BORDER_CONSTANT, cv::Scalar(0));
-    // cv::copyMakeBorder(guide, guide, config.guide_size, config.guide_size, config.guide_size, config.guide_size, cv::BORDER_CONSTANT, cv::Scalar(0));
+    cv::copyMakeBorder(input, input, config.guide_size + 3, config.guide_size + 3, config.guide_size + 3, config.guide_size + 3, cv::BORDER_CONSTANT, cv::Scalar(0));
+    cv::copyMakeBorder(output, output, config.guide_size + 3, config.guide_size + 3, config.guide_size + 3, config.guide_size + 3, cv::BORDER_CONSTANT, cv::Scalar(0));
+    cv::copyMakeBorder(guide, guide, config.guide_size + 3, config.guide_size + 3, config.guide_size + 3, config.guide_size + 3, cv::BORDER_CONSTANT, cv::Scalar(0));
 
     cv::Mat input_guide = input.mul(guide);
     cv::Mat guide_guide = guide.mul(guide);

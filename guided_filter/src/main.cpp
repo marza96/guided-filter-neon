@@ -9,6 +9,17 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 
+
+cv::Mat cropBorder(const cv::Mat& img, int M)
+{
+    CV_Assert(!img.empty() && M >= 0);
+    CV_Assert(img.cols > 2 * M && img.rows > 2 * M);
+
+    cv::Rect roi(M, M, img.cols - 2 * M, img.rows - 2 * M);
+    return img(roi).clone();   // clone() makes an independent copy
+}
+
+
 int main(int argc, char** argv)
 {
     if (argc != 3)
@@ -34,7 +45,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    Configuration config{4, 1e-10};
+    Configuration config{2, 1e-10};
 
     cv::cvtColor(guide_u8, guide_u8, cv::COLOR_BGR2GRAY);
     cv::cvtColor(input_u8, input_u8, cv::COLOR_BGR2GRAY);
@@ -87,6 +98,12 @@ int main(int argc, char** argv)
     cv::Mat output_neon_u8;
     output.convertTo(output_u8, CV_8U, 255.0);
     output_neon.convertTo(output_neon_u8, CV_8U, 255.0);
+
+    output_u8 = cropBorder(output_u8, config.guide_size + 3);
+    output_neon_u8 = cropBorder(output_neon_u8, config.guide_size + 3);
+    diff_u8 = cropBorder(diff_u8, config.guide_size + 3);
+    diff_amp_u8 = cropBorder(diff_amp_u8, config.guide_size + 3);
+    diff_heatmap = cropBorder(diff_heatmap, config.guide_size + 3);
 
     cv::imwrite("output.png", output_u8);
     cv::imwrite("output_neon.png", output_neon_u8);

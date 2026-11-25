@@ -132,7 +132,7 @@ float32x4_t get_mean_neon(int i, int j, const cv::Mat &input, Configuration &con
 
 void fit_window_neon(int i, int j, cv::Mat &input, cv::Mat &guide, cv::Mat &output, cv::Mat &guide_guide, cv::Mat &input_guide, Configuration &config)
 {
-    float32x4_t zero_neon = vdupq_n_f32(0.0);
+    float32x4_t zero_neon = vdupq_n_f32(float(config.guide_size + 3));
     float32x4_t guide_size_neon = vdupq_n_f32(float(config.guide_size));
     float32x4_t j_offset_neon{0.0f, 1.0f, 2.0f, 3.0f};
 
@@ -141,18 +141,18 @@ void fit_window_neon(int i, int j, cv::Mat &input, cv::Mat &guide, cv::Mat &outp
 
     float32x4_t start_row_neon = vmaxq_f32(i_neon - guide_size_neon, zero_neon);
     float32x4_t start_col_neon = vmaxq_f32(j_neon - guide_size_neon, zero_neon);
-    float32x4_t end_row_neon = vminq_f32(i_neon + guide_size_neon, vdupq_n_f32(float(input.rows - 1)));
-    float32x4_t end_col_neon = vminq_f32(j_neon + guide_size_neon, vdupq_n_f32(float(input.cols - 1)));
+    float32x4_t end_row_neon = vminq_f32(i_neon + guide_size_neon, vdupq_n_f32(float(input.rows - config.guide_size - 4)));
+    float32x4_t end_col_neon = vminq_f32(j_neon + guide_size_neon, vdupq_n_f32(float(input.cols - config.guide_size - 4)));
 
     float32x4_t mean_input_neon = vdupq_n_f32(0.0);
     float32x4_t mean_guide_neon = vdupq_n_f32(0.0);
     float32x4_t mean_mul_neon = vdupq_n_f32(0.0);
     float32x4_t sigma_neon = vdupq_n_f32(0.0);
 
-    int start_row = std::max(i - config.guide_size, 0);
-    int end_row = std::min(i + config.guide_size, input.rows - 1);
-    int start_col = std::max(-3, j - config.guide_size);
-    int end_col = std::min(j + config.guide_size, input.cols - 1);
+    int start_row = std::max(i - config.guide_size, 3);
+    int end_row = std::min(i + config.guide_size, input.rows - config.guide_size - 4);
+    int start_col = std::max(j - config.guide_size, 3);
+    int end_col = std::min(j + config.guide_size, input.cols - config.guide_size - 4);
 
     float *input_buff = input.ptr<float>(0);
     float *guide_buff = guide.ptr<float>(0);
@@ -163,10 +163,10 @@ void fit_window_neon(int i, int j, cv::Mat &input, cv::Mat &guide, cv::Mat &outp
     {
         for (int p = start_row; p <= end_row; p++)
         {   
-            mean_input_neon += vld1q_f32(&input_buff[p * input.cols + q]);//  fetch_buff(input_buff, p, q, input.rows, input.cols);
-            mean_guide_neon += vld1q_f32(&guide_buff[p * input.cols + q]);// fetch_buff(guide_buff, p, q, input.rows, input.cols);
-            sigma_neon += vld1q_f32(&guide_guide_buff[p * input.cols + q]); //fetch_buff(guide_guide_buff, p, q, input.rows, input.cols);
-            mean_mul_neon += vld1q_f32(&input_guide_buff[p * input.cols + q]); //fetch_buff(input_guide_buff, p, q, input.rows, input.cols);
+            mean_input_neon += vld1q_f32(&input_buff[p * input.cols + q]);
+            mean_guide_neon += vld1q_f32(&guide_buff[p * input.cols + q]);
+            sigma_neon += vld1q_f32(&guide_guide_buff[p * input.cols + q]); 
+            mean_mul_neon += vld1q_f32(&input_guide_buff[p * input.cols + q]);
         }
     }
 
@@ -202,9 +202,11 @@ void rescale_neon(cv::Mat &output, Configuration &config)
     float j_buff[4] = {0.0, 1.0, 2.0, 3.0};
 
     float32x4_t guide_size_neon = vdupq_n_f32(float(config.guide_size));
-    float32x4_t zero_neon = vdupq_n_f32(0.0);
-    float32x4_t cols_neon = vdupq_n_f32(float(output.cols - 1));
-    float32x4_t rows_neon = vdupq_n_f32(float(output.rows - 1));
+    float32x4_t zero_neon = vdupq_n_f32(config.guide_size + 3);
+    float32x4_t cols_neon = vdupq_n_f32(float(output.cols - config.guide_size - 4));
+    float32x4_t rows_neon = vdupq_n_f32(float(output.rows - config.guide_size - 4));
+
+    float32x4_t cols_neon_ = vdupq_n_f32(float(output.cols - 1));
 
     float32x4_t i_neon = vld1q_f32(i_buff);
     float32x4_t j_neon = vld1q_f32(j_buff);
@@ -235,9 +237,9 @@ void rescale_neon(cv::Mat &output, Configuration &config)
             return;
         }
 
-        i_neon = vrndmq_f32((k_neon + 4) / (rows_neon + 1));
-        j_neon = (k_neon + 4) - vrndmq_f32((k_neon + 4) / (cols_neon + 1)) * (cols_neon + 1);
         k_neon = k_neon + 4;
+        i_neon = vrndmq_f32((k_neon) / (cols_neon_ + 1));
+        j_neon = (k_neon) - vrndmq_f32((k_neon) / (cols_neon_ + 1)) * (cols_neon_ + 1);
 
         vst1q_f32(&output_buff[k], output_neon);
     }
@@ -248,9 +250,9 @@ void guided_filter_neon(cv::Mat &input,cv::Mat &guide, cv::Mat &output, Configur
     if ((input.rows != guide.rows) || (input.cols != guide.cols))
         throw std::length_error("Size of the guide does not match the input size");
 
-    // cv::copyMakeBorder(input, input, config.guide_size, config.guide_size, config.guide_size, config.guide_size, cv::BORDER_CONSTANT, cv::Scalar(0));
-    // cv::copyMakeBorder(output, output, config.guide_size, config.guide_size, config.guide_size, config.guide_size, cv::BORDER_CONSTANT, cv::Scalar(0));
-    // cv::copyMakeBorder(guide, guide, config.guide_size, config.guide_size, config.guide_size, config.guide_size, cv::BORDER_CONSTANT, cv::Scalar(0));
+    cv::copyMakeBorder(input, input, config.guide_size + 3, config.guide_size + 3, config.guide_size + 3, config.guide_size + 3, cv::BORDER_CONSTANT, cv::Scalar(0));
+    cv::copyMakeBorder(output, output, config.guide_size + 3, config.guide_size + 3, config.guide_size + 3, config.guide_size + 3, cv::BORDER_CONSTANT, cv::Scalar(0));
+    cv::copyMakeBorder(guide, guide, config.guide_size + 3, config.guide_size + 3, config.guide_size + 3, config.guide_size + 3, cv::BORDER_CONSTANT, cv::Scalar(0));
 
     cv::Mat input_guide = input.mul(guide);
     cv::Mat guide_guide = guide.mul(guide);
